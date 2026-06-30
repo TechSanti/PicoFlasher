@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022 Balázs Triszka <balika011@gmail.com>
- * Versão Definitiva V5: Correção do clock SD para Pi Pico (Corona 4GB estável)
+ * Versão Definitiva V16: Clock eMMC unificado (12,5 MHz) para máxima estabilidade
  */
 
 #include <stdlib.h>
@@ -77,10 +77,26 @@ void process_led() {
 }
 // ====================================================================
 
-void tud_mount_cb(void) { xbox_stop_smc(); }
-void tud_umount_cb(void) { xbox_start_smc(); }
-void tud_suspend_cb(bool remote_wakeup_en) { (void)remote_wakeup_en; xbox_start_smc(); }
-void tud_resume_cb(void) { xbox_stop_smc(); }
+static bool smc_stopped = false;
+
+static void ensure_smc_stopped(void) {
+    if (!smc_stopped) {
+        xbox_stop_smc();
+        smc_stopped = true;
+    }
+}
+
+void tud_mount_cb(void) {
+    xbox_stop_smc();
+    smc_stopped = true;
+}
+
+void tud_umount_cb(void) { /* SMC nunca é religado */ }
+void tud_suspend_cb(bool remote_wakeup_en) { (void)remote_wakeup_en; }
+void tud_resume_cb(void) {
+    xbox_stop_smc();
+    smc_stopped = true;
+}
 
 #define GET_VERSION 0x00
 #define GET_FLASH_CONFIG 0x01
@@ -185,13 +201,21 @@ void tud_cdc_rx_cb(uint8_t itf) {
         else if (cmd.cmd == GET_FLASH_CONFIG) {
             uint32_t fc;
             if (emmc_detected) {
-                fc = 0x00000000; 
+                uint32_t spi_config = xbox_get_flash_config();
+                if (spi_config != 0xFFFFFFFF) {
+                    emmc_detected = false;
+                    fc = spi_config;
+                } else {
+                    fc = 0x00000000;
+                }
             } else {
+                ensure_smc_stopped();
                 fc = xbox_get_flash_config();
             }
             tud_cdc_write(&fc, 4);
         }
         else if (cmd.cmd == READ_FLASH) {
+            ensure_smc_stopped();
             uint8_t buffer[0x210];
             uint32_t ret = xbox_nand_read_block(cmd.lba, buffer, &buffer[0x200]);
             tud_cdc_write(&ret, 4);
@@ -199,6 +223,7 @@ void tud_cdc_rx_cb(uint8_t itf) {
                 tud_cdc_write(buffer, sizeof(buffer));
         }
         else if (cmd.cmd == WRITE_FLASH) {
+            ensure_smc_stopped();
             uint8_t buffer[0x210];
             uint32_t count = tud_cdc_read(&buffer, sizeof(buffer));
             if (count != sizeof(buffer)) return;
@@ -206,6 +231,7 @@ void tud_cdc_rx_cb(uint8_t itf) {
             tud_cdc_write(&ret, 4);
         }
         else if (cmd.cmd == READ_FLASH_STREAM) {
+            ensure_smc_stopped();
             stream_emmc = false;
             do_stream = true;
             stream_offset = 0;
@@ -264,7 +290,7 @@ void tud_cdc_rx_cb(uint8_t itf) {
             gpio_init(MMC_CMD_PIN);
             gpio_set_dir(MMC_CMD_PIN, GPIO_IN);
             gpio_pull_down(MMC_CMD_PIN);
-            busy_wait_us(15);
+            busy_wait_us(500);
             emmc_detected = gpio_get(MMC_CMD_PIN);
             gpio_disable_pulls(MMC_CMD_PIN);
             tud_cdc_write(&emmc_detected, 1);
@@ -279,11 +305,8 @@ void tud_cdc_rx_cb(uint8_t itf) {
 
             uint32_t ret = sd_init();
 
-            // 🔹 CORREÇÃO CRÍTICA: reduz clock SD para ~12,5 MHz no Pi Pico
-            //    O Zero mantém o divisor 4 (31,25 MHz) que já funciona.
-            #ifndef BOARD_RP2040_ZERO
-                sd_set_clock_divider(10);   // 125 MHz / 10 = 12,5 MHz
-            #endif
+            // 🔹 Clock eMMC unificado em 12,5 MHz – estabilidade máxima
+            sd_set_clock_divider(10);
 
             gpio_set_drive_strength(MMC_CLK_PIN, GPIO_DRIVE_STRENGTH_4MA);
             gpio_set_drive_strength(MMC_CMD_PIN, GPIO_DRIVE_STRENGTH_4MA);
@@ -343,7 +366,6 @@ void tud_cdc_tx_complete_cb(uint8_t itf) {
 }
 
 int main(void) {
-    // Clock padrão 125 MHz (estável em qualquer Pico)
     uint32_t freq = clock_get_hz(clk_sys);
     clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS, freq, freq);
 
