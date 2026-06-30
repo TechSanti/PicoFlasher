@@ -2,40 +2,19 @@
 
 # PicoFlasher
 
-Open source XBOX 360 NAND flasher firmware for Raspberry Pi Pico
+Firmware de gravação NAND de código aberto para Xbox 360 no Raspberry RP2040 Pi Pico/Zero
 
-([Binary Build Guide](BUILD.md)) If you want, you can build your own binary.
+([Guia de Compilação Binária](BUILD.md)) Se desejar, você pode compilar seu próprio binário.
 
-## Wiring:
 
-### Nand Flash
-| Pico | Xbox |
-| ------------- | ------------- |
-| GP16  | SPI_MISO  |
-| GP17  | SPI_SS_N |
-| GP18  | SPI_CLK  |
-| GP19  |  SPI_MOSI |
-| GP20  |  SMC_DBG_EN |
-| GP21  | SMC_RST_XDK_N  |
-| GND  |  GND |
+# Raspberry RP2040 Pi Pico
+<img width="2560" height="1442" alt="PICO FLASHER RP2040 PI PICO (1)" src="https://github.com/user-attachments/assets/20bbe0f2-bc69-4e49-94ce-a5969db53d56" />
 
-### ISD12xx Audible Feedback IC
-|  | Pico | Trinity | Corona |
-| ------------- | ------------- | ------------- | ------------- |
-SPI_RDY | GP11 | FT2V4 | J2C2-A10
-SPI_MISO | GP12 | FT2R7 | J2C2-B11
-SPI_SS_N | GP13 | FT2R6 | J2C2-A11
-SPI_CLK | GP14 | FT2T4 | J2C2-A8
-SPI_MOSI | GP15 | FT2T5 | J2C2-B8
 
-### EMMC Flash
-| Pico | Xbox | Corona 4GB |
-| ------------- | ------------- | ------------- |
-| GP6  | FLSH_DATA<0> | U1D1 pin 16 |
-| GP7  | FLSH_WP_N (CMD) | U1D1 pin 3 |
-| GP8  |  FLSH_CE_N (CLK) | U1D1 pin 2 |
-| GP9  |  MMC_RST_N | U1D1 pin 1 |
-| GP21  | SMC_RST_XDK_N  | Same as 16MB flash |
-| GND  |  GND | U1D1 PIN 4 |
+# Raspberry RP2040 Zero
+<img width="2560" height="1399" alt="PICO FLASHER RP2040 ZERO (1)" src="https://github.com/user-attachments/assets/54ca4d57-5c7e-4618-86a6-04ae3e6df7e4" />
 
-**DO NOT SOLDER ANYTHING TO THE CRYISTAL**
+
+
+
+
